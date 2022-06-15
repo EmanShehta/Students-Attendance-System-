@@ -1,0 +1,252 @@
+---------------------------------------------------------START OF USER TABLE -----------------------
+CREATE TABLE USERS
+(
+    PK NUMBER PRIMARY KEY,
+    NAME VARCHAR2(4000),
+    EMAIL VARCHAR2(4000),
+    ROLES NUMBER(1) DEFAULT 0,
+    CREATED_AT DATE DEFAULT SYSDATE,
+    user_id NUMBER,
+    LANG VARCHAR2(200) DEFAULT 'ar',
+    PASSWORD VARCHAR2(4000),
+    CREATED_BY NUMBER,
+    CONSTRAINT USER_CREATE_FK FOREIGN KEY(CREATED_BY) REFERENCES USERS(PK)
+);
+
+CREATE SEQUENCE  USERS_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE ;
+ 
+create or replace trigger USERS_trigger
+before insert
+on USERS
+for each row
+DECLARE 
+V_UNQIE_ID NUMBER;
+begin 
+    SELECT COUNT(*)
+    INTO V_UNQIE_ID
+    FROM USERS;
+    
+    IF :NEW.PK IS NULL THEN
+        :NEW.PK := USERS_SEQ.NEXTVAL;
+    END IF;
+    
+    IF :NEW.ROLES =0 THEN
+            :NEW.user_id := V_UNQIE_ID + 20221700000;
+    ELSIF :NEW.ROLES=3 THEN
+            :NEW.user_id := V_UNQIE_ID + 1000;
+    ELSIF :NEW.ROLES =2 THEN
+            :NEW.user_id := V_UNQIE_ID + 1;
+    END IF;
+end;
+---------------------------------------------------------END OF USER TABLE -----------------------
+---------------------------------------------------------START OF DEPARTMENT TABLE -----------------------
+CREATE TABLE DEPARTMENT
+(
+    PK NUMBER PRIMARY KEY,
+    NAME VARCHAR2(400),
+    CREATED_AT DATE DEFAULT SYSDATE
+);
+CREATE SEQUENCE  DEPARTMENT_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE ;
+create or replace trigger DEPARTMENT_trigger
+before insert 
+on DEPARTMENT
+for each row
+begin 
+    IF :NEW.PK IS NULL THEN
+        :NEW.PK := DEPARTMENT_SEQ.NEXTVAL;
+    END IF;
+end;
+---------------------------------------------------------END OF DEPARTMENT TABLE -----------------------
+---------------------------------------------------------START OF COURSE TABLE -----------------------
+
+CREATE TABLE COURSE
+(
+    PK NUMBER PRIMARY KEY,
+    NAME VARCHAR2(400),
+    LVL NUMBER(1) DEFAULT 1,
+    DEPARTMENT number,
+    CONSTRAINT COURSE_DEP_FK FOREIGN KEY (DEPARTMENT) REFERENCES DEPARTMENT(PK)
+);
+
+CREATE SEQUENCE  COURSE_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE;
+
+create or replace trigger COURSE_trigger
+before insert 
+on COURSE
+for each row
+begin 
+    IF :NEW.PK IS NULL THEN
+
+        :NEW.PK := COURSE_SEQ.NEXTVAL;
+    END IF;
+end;
+
+
+---------------------------------------------------------END OF DEPARTMENT TABLE -----------------------
+---------------------------------------------------------START OF COURSE_DETAILS TABLE -----------------------
+
+CREATE TABLE COURSE_DETAILS 
+(
+    PK NUMBER PRIMARY KEY,
+    JOINED_DATE DATE DEFAULT SYSDATE,
+    COURSE NUMBER ,
+    STUDENT NUMBER,
+    PROFESSOR NUMBER ,
+    ASSISTANT NUMBER,
+    GRADE NUMBER DEFAULT 0,
+    ATTENDANCE_DAY NUMBER DEFAULT 0,
+    CONSTRAINT STUDENT_COURSE_FK FOREIGN KEY (STUDENT) REFERENCES USERS(PK),
+    CONSTRAINT PROFESSOR_COURSE_FK FOREIGN KEY (PROFESSOR) REFERENCES USERS(PK),
+    CONSTRAINT ASSISTANT_COURSE_FK FOREIGN KEY (ASSISTANT) REFERENCES USERS(PK),
+     CONSTRAINT course_deailts_FK FOREIGN KEY (COURSE) REFERENCES COURSE(PK)
+);
+CREATE SEQUENCE  COURSE_DETAILS_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE;
+create or replace trigger COURSE_DETAILS_trigger
+before insert
+on COURSE_DETAILS
+for each row
+begin 
+    IF :NEW.PK IS NULL THEN
+        :NEW.PK := COURSE_DETAILS_SEQ.NEXTVAL;
+    END IF;
+end;
+
+---------------------------------------------------------END OF COURSE_DETAILS TABLE -----------------------
+---------------------------------------------------------START OF ATTENDANCES TABLE -----------------------
+CREATE TABLE ATTENDANCES
+(
+    PK NUMBER PRIMARY KEY,
+    TRX_DATE DATE DEFAULT SYSDATE,
+    COURSE_DETAILS NUMBER,
+    CONSTRAINT COURSE_ATTENDANCES_FK FOREIGN KEY (COURSE_DETAILS) REFERENCES COURSE_DETAILS(PK)
+);
+
+CREATE SEQUENCE  ATTENDANCES_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE;
+
+
+create or replace trigger ATTENDANCES_trigger
+before insert
+on ATTENDANCES
+for each row
+declare
+v_count NUMBER :=0;
+V_COUNT_STUDENT DATE;
+begin 
+    SELECT MAX(TRX_DATE)
+    INTO V_COUNT_STUDENT
+    FROM ATTENDANCES
+    WHERE COURSE_DETAILS = :NEW.COURSE_DETAILS;
+    
+    IF trunc(SYSDATE - V_COUNT_STUDENT) > 0 then
+    
+        SELECT ATTENDANCE_DAY
+        INTO v_count
+        FROM COURSE_DETAILS
+        WHERE PK = :NEW.COURSE_DETAILS;
+        
+        v_count := v_count+1;
+        
+        UPDATE COURSE_DETAILS
+        SET ATTENDANCE_DAY = v_count
+        WHERE PK = :NEW.COURSE_DETAILS;
+        
+        IF :NEW.PK IS NULL THEN
+            :NEW.PK := ATTENDANCES_SEQ.NEXTVAL;
+        END IF;
+        
+    END IF;
+end;
+---------------------------------------------------------END OF ATTENDANCES TABLE -----------------------
+
+---------------------------------------------------------START OF COURSE_COPLAINT TABLE  -----------------------
+CREATE TABLE COURSE_COPLAINT
+(
+    PK NUMBER PRIMARY KEY,
+    TRX_DATE DATE DEFAULT SYSDATE,
+    COURSE NUMBER,
+    MESSAGE VARCHAR2(4000),
+    USER NUMBER,
+    TRX_NO NUMBER,
+    READ_FLAG NUMBER(1) DEFAULT 0,
+    CONSTRAINT course_COMPLAINT_FK FOREIGN KEY (COURSE) REFERENCES COURSE(PK),
+    CONSTRAINT USER_COMPLAINT_FK FOREIGN KEY (USER) REFERENCES USERS(PK)
+);
+
+CREATE SEQUENCE  COURSE_COPLAINT_SEQ
+ MINVALUE 1 
+ MAXVALUE 9999999999999999999999999999 
+ INCREMENT BY 1 
+ START WITH 1 CACHE 20 
+ NOORDER  NOCYCLE;
+create or replace trigger COURSE_COPLAINT_trigger
+before insert 
+on COURSE_COPLAINT
+for each row
+DECLARE 
+V_COUNT NUMBER ;
+begin 
+
+    SELECT COUNT(*)
+    INTO V_COUNT
+    FROM COURSE_COPLAINT;
+
+    :NEW.TRX_NO := V_COUNT+1;
+    
+     IF :NEW.PK IS NULL THEN
+        :NEW.PK := COURSE_COPLAINT_SEQ.NEXTVAL;
+     END IF;
+end;
+
+---------------------------------------------------------END OF COURSE_COPLAINT TABLE -----------------------
+
+
+
+
+
+---------------------------------------------------------START OF PROCEDURES-----------------------
+
+create or replace PROCEDURE GET_ATT(P_student IN VARCHAR2,P_COURSE IN VARCHAR2,COUNT_ATT OUT NUMBER)
+AS
+BEGIN 
+    select count(*)
+    INTO COUNT_ATT
+    from attendances M
+    INNER JOIN COURSE_DETAILS CD ON CD.PK = M.COURSE_DETAILS
+    INNER JOIN USERS U ON U.PK=CD.STUDENT
+    INNER JOIN COURSE C ON C.PK=CD.COURSE
+    WHERE TO_CHAR(U.PK)=TRIM(P_student) AND TO_CHAR(C.PK)=TRIM(P_COURSE);
+END;
+
+create or replace PROCEDURE GETCOURSES(P_ID IN VARCHAR2,DATA_ALL OUT sys_refcursor)
+AS
+BEGIN 
+    OPEN DATA_ALL FOR SELECT C.PK ||'-'|| C.NAME TEXT
+    FROM COURSE_DETAILS M 
+    INNER JOIN COURSE C ON C.PK=M.COURSE
+    WHERE TO_CHAR(M.ASSISTANT)=TRIM(P_ID) OR (TO_CHAR(M.student) = TRIM(P_ID) ) OR (TO_CHAR(m.professor) = TRIM(P_ID) ); 
+END;
